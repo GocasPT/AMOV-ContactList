@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -13,6 +15,8 @@ class Contact {
   String email;
   DateTime? birthday;
   String? picture;
+  double? latitude;
+  double? longitude;
 
   Contact({
     required this.name,
@@ -20,6 +24,8 @@ class Contact {
     required this.email,
     this.birthday,
     this.picture,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toJson() {
@@ -29,6 +35,8 @@ class Contact {
       'email': email,
       'birthday': birthday?.toIso8601String(),
       'picture': picture,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -41,6 +49,8 @@ class Contact {
           ? DateTime.parse(json['birthday'])
           : null,
       picture: json['picture'],
+      latitude: json['latitude'],
+      longitude: json['longitude'],
     );
   }
 }
@@ -140,9 +150,20 @@ class _MainScreenState extends State<MainScreen> {
         builder: (context) => ViewContactScreen(
           contact: contact,
           onEdit: () => editContact(contact),
+          onDelete: () {
+            deleteContact(contact);
+            Navigator.pop(context);
+          },
         ),
       ),
     );
+  }
+
+  void deleteContact(Contact contact) {
+    setState(() {
+      contactsList.remove(contact);
+    });
+    saveContacts();
   }
 
   @override
@@ -184,8 +205,12 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
   late TextEditingController emailController;
   DateTime? birthday;
   XFile? image;
+  double? latitude;
+  double? longitude;
 
   final ImagePicker _picker = ImagePicker();
+  late GoogleMapController mapController;
+  LatLng? selectedLocation;
 
   @override
   void initState() {
@@ -198,6 +223,9 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
       image = widget.contact!.picture != null
           ? XFile(widget.contact!.picture!)
           : null;
+      latitude = widget.contact!.latitude;
+      longitude = widget.contact!.longitude;
+      selectedLocation = LatLng(latitude!, longitude!);
     } else {
       nameController = TextEditingController();
       phoneController = TextEditingController();
@@ -205,6 +233,32 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
     }
   }
 
+  Future<Position?> getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
 
   Future<void> _selectBirthday(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -229,10 +283,24 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
     }
   }
 
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
+
+  void _onTapMap(LatLng position) {
+    setState(() {
+      selectedLocation = position;
+      latitude = position.latitude;
+      longitude = position.longitude;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.contact != null ? "Edit Contact" : "Create Contact")),
+      appBar: AppBar(
+        title: Text(widget.contact != null ? "Edit Contact" : "Create Contact"),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -283,6 +351,57 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
             ),
             SizedBox(height: 20),
             ElevatedButton(
+              onPressed: () async {
+                try {
+                  final position = await getCurrentLocation();
+                  if (position != null) {
+                    setState(() {
+                      latitude = position.latitude;
+                      longitude = position.longitude;
+                      selectedLocation = LatLng(latitude!, longitude!);
+                    });
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error fetching location: $e')),
+                  );
+                }
+              },
+              child: Text('Add Current Location'),
+            ),
+            if (latitude != null && longitude != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  'Location: Lat $latitude, Long $longitude',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            SizedBox(height: 20),
+            selectedLocation != null
+                ? Container(
+              height: 200,
+              width: double.infinity,
+              child: GoogleMap(
+                onMapCreated: _onMapCreated,
+                initialCameraPosition: CameraPosition(
+                  target: selectedLocation!,
+                  zoom: 14,
+                ),
+                markers: selectedLocation != null
+                    ? {
+                  Marker(
+                    markerId: MarkerId('selected-location'),
+                    position: selectedLocation!,
+                  ),
+                }
+                    : {},
+                onTap: _onTapMap,
+              ),
+            )
+                : Container(),
+            SizedBox(height: 20),
+            ElevatedButton(
               onPressed: () {
                 final contact = Contact(
                   name: nameController.text,
@@ -290,6 +409,8 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
                   email: emailController.text,
                   birthday: birthday,
                   picture: image?.path,
+                  latitude: latitude,
+                  longitude: longitude,
                 );
                 widget.onSave(contact);
               },
@@ -305,8 +426,13 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
 class ViewContactScreen extends StatefulWidget {
   final Contact contact;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const ViewContactScreen({super.key, required this.contact, required this.onEdit});
+  const ViewContactScreen({
+    super.key,
+    required this.contact,
+    required this.onEdit,
+    required this.onDelete});
 
   @override
   State<ViewContactScreen> createState() => _ViewContactScreenState();
@@ -314,6 +440,7 @@ class ViewContactScreen extends StatefulWidget {
 
 class _ViewContactScreenState extends State<ViewContactScreen> {
   late Contact contact;
+  GoogleMapController? mapController;
 
   @override
   void initState() {
@@ -342,11 +469,42 @@ class _ViewContactScreenState extends State<ViewContactScreen> {
             Text("Name: ${contact.name}"),
             Text("Phone: ${contact.phone}"),
             Text("Email: ${contact.email}"),
-            Text("Birthday: ${contact.birthday != null ? contact.birthday!.toLocal().toString().split(' ')[0] : 'N/A'}"),
+            Text("Birthday: ${contact.birthday ?? 'N/A'}"),
             SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: widget.onEdit,
-              child: Text('Edit Contact'),
+            contact.latitude != null && contact.longitude != null
+                ? Expanded(
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(contact.latitude!, contact.longitude!),
+                  zoom: 14,
+                ),
+                markers: {
+                  Marker(
+                    markerId: MarkerId(contact.name),
+                    position: LatLng(contact.latitude!, contact.longitude!),
+                    infoWindow: InfoWindow(title: contact.name),
+                  ),
+                },
+                onMapCreated: (GoogleMapController controller) {
+                  mapController = controller;
+                },
+              ),
+            )
+                : Text("Location: Not available"),
+            SizedBox(height: 20),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: widget.onEdit,
+                  child: Text('Edit Contact'),
+                ),
+                SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: widget.onDelete,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: Text('Delete Contact'),
+                ),
+              ],
             ),
           ],
         ),
