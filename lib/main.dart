@@ -1,61 +1,90 @@
 import 'package:flutter/material.dart';
-import 'model/contact.dart';
-import 'model/contact_list.dart';
-import 'viewmodel/contacts_viewmodel.dart';
 
-void main() {
-  runApp(MyApp());
+void main() => runApp(ContactsApp());
+
+class Contact {
+  String name;
+  String phone;
+  String email;
+  DateTime? birthday;
+  String? picture;
+
+  Contact({
+    required this.name,
+    required this.phone,
+    required this.email,
+    this.birthday,
+    this.picture,
+  });
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class ContactsApp extends StatelessWidget {
+  const ContactsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Contacts List',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: ContactsScreen(),
+      title: 'Flutter Contacts',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: MainScreen(),
     );
   }
 }
 
-class ContactsScreen extends StatefulWidget {
-  const ContactsScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<ContactsScreen> createState() => _ContactsScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> {
-  final ContactsList contactsList = ContactsList();
-  late ContactsViewModel viewModel;
+class _MainScreenState extends State<MainScreen> {
+  final List<Contact> contactsList = [];
 
-  @override
-  void initState() {
-    super.initState();
-    viewModel = ContactsViewModel(contactsList: contactsList);
-  }
-
-  void _navigateToContactForm([Contact? contact]) {
-    if (contact != null) {
-      viewModel.selectContact(contact);
-    } else {
-      viewModel.createContact();
-    }
-
+  void createContact() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ContactFormScreen(
-          onSave: (String name, String phone, String email) {
-            viewModel.updateContactDetails(name, phone, email);
-            if(viewModel.saveContact()) {
-              setState(() {});
-              Navigator.pop(context);
-            }
+        builder: (context) => CreateContactScreen(
+          onSave: (contact) {
+            setState(() {
+              contactsList.add(contact);
+            });
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+
+  void editContact(Contact contact) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateContactScreen(
+          onSave: (updatedContact) {
+            setState(() {
+              final index = contactsList.indexOf(contact);
+              contactsList[index] = updatedContact;
+            });
+            Navigator.pop(context);
+            Navigator.pop(context);
           },
           contact: contact,
+        ),
+      ),
+    );
+  }
+
+  void viewContact(Contact contact) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViewContactScreen(
+          contact: contact,
+          onEdit: () => editContact(contact),
         ),
       ),
     );
@@ -64,117 +93,133 @@ class _ContactsScreenState extends State<ContactsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Contacts List')),
+      appBar: AppBar(
+        title: Text('Contacts'),
+      ),
       body: ListView.builder(
-        itemCount: contactsList.getContacts().length,
+        itemCount: contactsList.length,
         itemBuilder: (context, index) {
-          final contact = contactsList.getContacts()[index];
           return ListTile(
-            title: Text(contact.name),
-            subtitle: Text(contact.phoneNumber),
-            onTap: () => _navigateToContactForm(contact),
+            title: Text(contactsList[index].name),
+            onTap: () => viewContact(contactsList[index]),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToContactForm(),
+        onPressed: createContact,
         child: Icon(Icons.add),
       ),
     );
   }
 }
 
-class ContactFormScreen extends StatefulWidget {
-  final void Function(String name, String phone, String email) onSave;
+class CreateContactScreen extends StatefulWidget {
+  final Function(Contact) onSave;
   final Contact? contact;
 
-  const ContactFormScreen({
-    super.key,
-    required this.onSave,
-    this.contact,
-  });
+  const CreateContactScreen({super.key, required this.onSave, this.contact});
 
   @override
-  State<ContactFormScreen> createState() => _ContactFormScreenState();
+  State<CreateContactScreen> createState() => _CreateContactScreenState();
 }
 
-class _ContactFormScreenState extends State<ContactFormScreen> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _emailController;
+class _CreateContactScreenState extends State<CreateContactScreen> {
+  late TextEditingController nameController;
+  late TextEditingController phoneController;
+  late TextEditingController emailController;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.contact?.name ?? '');
-    _phoneController = TextEditingController(text: widget.contact?.phoneNumber ?? '');
-    _emailController = TextEditingController(text: widget.contact?.email ?? '');
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    super.dispose();
+    if (widget.contact != null) {
+      nameController = TextEditingController(text: widget.contact!.name);
+      phoneController = TextEditingController(text: widget.contact!.phone);
+      emailController = TextEditingController(text: widget.contact!.email);
+    } else {
+      nameController = TextEditingController();
+      phoneController = TextEditingController();
+      emailController = TextEditingController();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Contact'),
-      ),
+      appBar: AppBar(title: Text(widget.contact != null ? "Edit Contact" : "Create Contact")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Form(
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Name is required'
-                    : null,
-              ),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Phone Number'),
-                keyboardType: TextInputType.phone,
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Phone number is required'
-                    : null,
-              ),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Email is required'
-                    : null,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                        widget.onSave(
-                          _nameController.text,
-                          _phoneController.text,
-                          _emailController.text,
-                        );
-                      },
-                    child: const Text('Save'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: phoneController,
+              decoration: InputDecoration(labelText: 'Phone'),
+            ),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                final contact = Contact(
+                  name: nameController.text,
+                  phone: phoneController.text,
+                  email: emailController.text,
+                );
+                widget.onSave(contact);
+              },
+              child: Text(widget.contact != null ? 'Update Contact' : 'Save Contact'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ViewContactScreen extends StatefulWidget {
+  final Contact contact;
+  final VoidCallback onEdit;
+
+  const ViewContactScreen({super.key, required this.contact, required this.onEdit});
+
+  @override
+  State<ViewContactScreen> createState() => _ViewContactScreenState();
+}
+
+class _ViewContactScreenState extends State<ViewContactScreen> {
+  late Contact contact;
+
+  @override
+  void initState() {
+    super.initState();
+    contact = widget.contact;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(contact.name)),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Name: ${contact.name}"),
+            Text("Phone: ${contact.phone}"),
+            Text("Email: ${contact.email}"),
+            Text("Birthday: ${contact.birthday ?? 'N/A'}"),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: widget.onEdit,
+              child: Text('Edit Contact'),
+            ),
+          ],
         ),
       ),
     );
