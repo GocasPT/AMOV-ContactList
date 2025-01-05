@@ -8,7 +8,7 @@ class ContactCard extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onTap;
 
-  const ContactCard({
+  const ContactCard({super.key,
     required this.contact,
     required this.isExpanded,
     required this.onToggle,
