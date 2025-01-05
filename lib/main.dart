@@ -84,12 +84,23 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   List<Contact> contactsList = [];
   List<Contact> recentlyEditedContacts = [];
+  Set<String> expandedCards = {};
 
   @override
   void initState() {
     super.initState();
     loadContacts();
     loadRecentlyEdited();
+  }
+
+  void toggleCard(String contactId) {
+    setState(() {
+      if (expandedCards.contains(contactId)) {
+        expandedCards.remove(contactId);
+      } else {
+        expandedCards.add(contactId);
+      }
+    });
   }
 
   Future<void> loadRecentlyEdited() async {
@@ -226,52 +237,111 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Contacts'),
-      ),
-      body: ListView(
-        children: [
-          if (recentlyEditedContacts.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    'Recently Edited',
-                    style: Theme.of(context).textTheme.titleLarge,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RecentlyEditedScreen(
+                    recentlyEditedContacts: recentlyEditedContacts,
+                    onViewContact: viewContact,
                   ),
                 ),
-                ...recentlyEditedContacts.map((contact) {
-                  return ListTile(
-                    title: Text(contact.name)
-                  );
-                }),
-              ],
+              );
+            },
+            child: Text(
+              'Recently Edited',
             ),
-          Divider(),
-          if (contactsList.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    'All Contacts',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                ...contactsList.map((contact) {
-                  return ListTile(
-                    title: Text(contact.name),
-                    onTap: () => viewContact(contact),
-                  );
-                }),
-              ],
-            ),
+          ),
         ],
+      ),
+      body: ListView.builder(
+        itemCount: contactsList.length,
+        itemBuilder: (context, index) {
+          final contact = contactsList[index];
+          final String contactId = '${contact.name}_${contact.phone}';
+          final bool isExpanded = expandedCards.contains(contactId);
+
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: contact.picture != null
+                      ? CircleAvatar(
+                    backgroundImage: FileImage(File(contact.picture!)),
+                  )
+                      : CircleAvatar(child: Icon(Icons.person)),
+                  title: Text(contact.name),
+                  trailing: IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                    onPressed: () => toggleCard(contactId),
+                  ),
+                  onTap: () => viewContact(contact),
+                ),
+                if (isExpanded)
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Phone: ${contact.phone}'),
+                        Text('Email: ${contact.email}'),
+                        if (contact.birthday != null)
+                          Text('Birthday: ${contact.birthday!.toLocal()}'),
+                        if (contact.latitude != null && contact.longitude != null)
+                          Text('Location: ${contact.latitude?.toStringAsFixed(2)}, '
+                              '${contact.longitude?.toStringAsFixed(2)}'),
+                        SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: createContact,
         child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class RecentlyEditedScreen extends StatelessWidget {
+  final List<Contact> recentlyEditedContacts;
+  final Function(Contact) onViewContact;
+
+  const RecentlyEditedScreen({
+    super.key,
+    required this.recentlyEditedContacts,
+    required this.onViewContact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Recently Edited'),
+      ),
+      body: ListView.builder(
+        itemCount: recentlyEditedContacts.length,
+        itemBuilder: (context, index) {
+          final contact = recentlyEditedContacts[index];
+          return ListTile(
+            leading: contact.picture != null
+                ? CircleAvatar(
+              backgroundImage: FileImage(File(contact.picture!)),
+            )
+                : CircleAvatar(child: Icon(Icons.person)),
+            title: Text(contact.name),
+            subtitle: Text('Last edited: ${contact.lastEdited}'),
+          );
+        },
       ),
     );
   }
