@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -180,6 +183,9 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
   late TextEditingController phoneController;
   late TextEditingController emailController;
   DateTime? birthday;
+  XFile? image;
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -189,6 +195,9 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
       phoneController = TextEditingController(text: widget.contact!.phone);
       emailController = TextEditingController(text: widget.contact!.email);
       birthday = widget.contact!.birthday;
+      image = widget.contact!.picture != null
+          ? XFile(widget.contact!.picture!)
+          : null;
     } else {
       nameController = TextEditingController();
       phoneController = TextEditingController();
@@ -211,6 +220,14 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        image = pickedFile;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +255,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
               children: [
                 Text(
                   birthday != null
-                      ? 'Birthday: ${birthday!.toLocal()}'
+                      ? 'Birthday: ${birthday!.toLocal().toString().split(' ')[0]}'
                       : 'Select Birthday',
                 ),
                 IconButton(
@@ -248,6 +265,23 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
               ],
             ),
             SizedBox(height: 20),
+            GestureDetector(
+              onTap: _pickImage,
+              child: image == null
+                  ? Container(
+                height: 100,
+                width: 100,
+                color: Colors.grey[300],
+                child: Icon(Icons.add_a_photo),
+              )
+                  : Image.file(
+                File(image!.path),
+                height: 100,
+                width: 100,
+                fit: BoxFit.cover,
+              ),
+            ),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 final contact = Contact(
@@ -255,6 +289,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
                   phone: phoneController.text,
                   email: emailController.text,
                   birthday: birthday,
+                  picture: image?.path,
                 );
                 widget.onSave(contact);
               },
@@ -295,6 +330,15 @@ class _ViewContactScreenState extends State<ViewContactScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            contact.picture != null
+                ? Image.file(File(contact.picture!), height: 100, width: 100, fit: BoxFit.cover)
+                : Container(
+              height: 100,
+              width: 100,
+              color: Colors.grey[300],
+              child: Icon(Icons.person),
+            ),
+            SizedBox(height: 20),
             Text("Name: ${contact.name}"),
             Text("Phone: ${contact.phone}"),
             Text("Email: ${contact.email}"),
