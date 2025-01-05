@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 void main() => runApp(ContactsApp());
 
@@ -16,6 +18,28 @@ class Contact {
     this.birthday,
     this.picture,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'birthday': birthday?.toIso8601String(),
+      'picture': picture,
+    };
+  }
+
+  static Contact fromJson(Map<String, dynamic> json) {
+    return Contact(
+      name: json['name'],
+      phone: json['phone'],
+      email: json['email'],
+      birthday: json['birthday'] != null
+          ? DateTime.parse(json['birthday'])
+          : null,
+      picture: json['picture'],
+    );
+  }
 }
 
 class ContactsApp extends StatelessWidget {
@@ -41,7 +65,33 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final List<Contact> contactsList = [];
+  List<Contact> contactsList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadContacts();
+  }
+
+  Future<void> loadContacts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? contactsJson = prefs.getString('contacts');
+    if (contactsJson != null) {
+      List<dynamic> contactList = json.decode(contactsJson);
+      setState(() {
+        contactsList = contactList
+            .map((contactJson) => Contact.fromJson(contactJson))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> saveContacts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Map<String, dynamic>> contactJsonList =
+    contactsList.map((contact) => contact.toJson()).toList();
+    await prefs.setString('contacts', json.encode(contactJsonList));
+  }
 
   void createContact() {
     Navigator.push(
@@ -52,6 +102,7 @@ class _MainScreenState extends State<MainScreen> {
             setState(() {
               contactsList.add(contact);
             });
+            saveContacts();
             Navigator.pop(context);
           },
         ),
@@ -69,6 +120,7 @@ class _MainScreenState extends State<MainScreen> {
               final index = contactsList.indexOf(contact);
               contactsList[index] = updatedContact;
             });
+            saveContacts();
             Navigator.pop(context);
             Navigator.pop(context);
           },
