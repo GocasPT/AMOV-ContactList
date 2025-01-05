@@ -179,6 +179,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
   late TextEditingController nameController;
   late TextEditingController phoneController;
   late TextEditingController emailController;
+  DateTime? birthday;
 
   @override
   void initState() {
@@ -187,12 +188,29 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
       nameController = TextEditingController(text: widget.contact!.name);
       phoneController = TextEditingController(text: widget.contact!.phone);
       emailController = TextEditingController(text: widget.contact!.email);
+      birthday = widget.contact!.birthday;
     } else {
       nameController = TextEditingController();
       phoneController = TextEditingController();
       emailController = TextEditingController();
     }
   }
+
+
+  Future<void> _selectBirthday(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: birthday ?? DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != birthday) {
+      setState(() {
+        birthday = picked;
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -216,12 +234,27 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
               decoration: InputDecoration(labelText: 'Email'),
             ),
             SizedBox(height: 20),
+            Row(
+              children: [
+                Text(
+                  birthday != null
+                      ? 'Birthday: ${birthday!.toLocal()}'
+                      : 'Select Birthday',
+                ),
+                IconButton(
+                  icon: Icon(Icons.calendar_today),
+                  onPressed: () => _selectBirthday(context),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 final contact = Contact(
                   name: nameController.text,
                   phone: phoneController.text,
                   email: emailController.text,
+                  birthday: birthday,
                 );
                 widget.onSave(contact);
               },
@@ -265,7 +298,7 @@ class _ViewContactScreenState extends State<ViewContactScreen> {
             Text("Name: ${contact.name}"),
             Text("Phone: ${contact.phone}"),
             Text("Email: ${contact.email}"),
-            Text("Birthday: ${contact.birthday ?? 'N/A'}"),
+            Text("Birthday: ${contact.birthday != null ? contact.birthday!.toLocal().toString().split(' ')[0] : 'N/A'}"),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: widget.onEdit,
