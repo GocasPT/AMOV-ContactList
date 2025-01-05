@@ -65,7 +65,7 @@ class ContactsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Contacts',
+      title: 'Contacts',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -250,9 +250,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               );
             },
-            child: Text(
-              'Recently Edited',
-            ),
+            child: Text('Recently Edited'),
           ),
         ],
       ),
@@ -260,53 +258,51 @@ class _MainScreenState extends State<MainScreen> {
         itemCount: contactsList.length,
         itemBuilder: (context, index) {
           final contact = contactsList[index];
-          final String contactId = '${contact.name}_${contact.phone}';
-          final bool isExpanded = expandedCards.contains(contactId);
-
-          return Card(
-            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: contact.picture != null
-                      ? CircleAvatar(
-                    backgroundImage: FileImage(File(contact.picture!)),
-                  )
-                      : CircleAvatar(child: Icon(Icons.person)),
-                  title: Text(contact.name),
-                  trailing: IconButton(
-                    icon: Icon(
-                      isExpanded ? Icons.expand_less : Icons.expand_more,
-                    ),
-                    onPressed: () => toggleCard(contactId),
-                  ),
-                  onTap: () => viewContact(contact),
-                ),
-                if (isExpanded)
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Phone: ${contact.phone}'),
-                        Text('Email: ${contact.email}'),
-                        if (contact.birthday != null)
-                          Text('Birthday: ${contact.birthday!.toLocal()}'),
-                        if (contact.latitude != null && contact.longitude != null)
-                          Text('Location: ${contact.latitude?.toStringAsFixed(2)}, '
-                              '${contact.longitude?.toStringAsFixed(2)}'),
-                        SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          );
+          return buildContactCard(contact);
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: createContact,
         child: Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget buildContactCard(Contact contact) {
+    final String contactId = '${contact.name}_${contact.phone}';
+    final bool isExpanded = expandedCards.contains(contactId);
+
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        children: [
+          ListTile(
+            leading: contact.picture != null
+                ? CircleAvatar(backgroundImage: FileImage(File(contact.picture!)))
+                : CircleAvatar(child: Icon(Icons.person)),
+            title: Text(contact.name),
+            trailing: IconButton(
+              icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+              onPressed: () => toggleCard(contactId),
+            ),
+            onTap: () => viewContact(contact),
+          ),
+          if (isExpanded)
+            Container(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Phone: ${contact.phone}'),
+                  Text('Email: ${contact.email}'),
+                  if (contact.birthday != null) Text('Birthday: ${contact.birthday!.toLocal()}'),
+                  if (contact.latitude != null && contact.longitude != null)
+                    Text('Location: ${contact.latitude?.toStringAsFixed(2)}, ${contact.longitude?.toStringAsFixed(2)}'),
+                  SizedBox(height: 8),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -457,122 +453,124 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
       appBar: AppBar(
         title: Text(widget.contact != null ? "Edit Contact" : "Create Contact"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(labelText: 'Name'),
-            ),
-            TextField(
-              controller: phoneController,
-              decoration: InputDecoration(labelText: 'Phone'),
-            ),
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(labelText: 'Email'),
-            ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Text(
-                  birthday != null
-                      ? 'Birthday: ${birthday!.toLocal().toString().split(' ')[0]}'
-                      : 'Select Birthday',
-                ),
-                IconButton(
-                  icon: Icon(Icons.calendar_today),
-                  onPressed: () => _selectBirthday(context),
-                ),
-              ],
-            ),
-            SizedBox(height: 20),
-            GestureDetector(
-              onTap: _pickImage,
-              child: image == null
-                  ? Container(
-                height: 100,
-                width: 100,
-                color: Colors.grey[300],
-                child: Icon(Icons.add_a_photo),
-              )
-                  : Image.file(
-                File(image!.path),
-                height: 100,
-                width: 100,
-                fit: BoxFit.cover,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: 'Name'),
               ),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  final position = await getCurrentLocation();
-                  if (position != null) {
-                    setState(() {
-                      latitude = position.latitude;
-                      longitude = position.longitude;
-                      selectedLocation = LatLng(latitude!, longitude!);
-                    });
-                  }
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error fetching location: $e')),
-                  );
-                }
-              },
-              child: Text('Add Current Location'),
-            ),
-            if (latitude != null && longitude != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  'Location: Lat $latitude, Long $longitude',
-                  style: TextStyle(color: Colors.grey),
-                ),
+              TextField(
+                controller: phoneController,
+                decoration: InputDecoration(labelText: 'Phone'),
               ),
-            SizedBox(height: 20),
-            selectedLocation != null
-                ? Container(
-              height: 200,
-              width: double.infinity,
-              child: GoogleMap(
-                onMapCreated: _onMapCreated,
-                initialCameraPosition: CameraPosition(
-                  target: selectedLocation!,
-                  zoom: 14,
-                ),
-                markers: selectedLocation != null
-                    ? {
-                  Marker(
-                    markerId: MarkerId('selected-location'),
-                    position: selectedLocation!,
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(labelText: 'Email'),
+              ),
+              SizedBox(height: 20),
+              Row(
+                children: [
+                  Text(
+                    birthday != null
+                        ? 'Birthday: ${birthday!.toLocal().toString().split(' ')[0]}'
+                        : 'Select Birthday',
                   ),
-                }
-                    : {},
-                onTap: _onTapMap,
+                  IconButton(
+                    icon: Icon(Icons.calendar_today),
+                    onPressed: () => _selectBirthday(context),
+                  ),
+                ],
               ),
-            )
-                : Container(),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final contact = Contact(
-                  name: nameController.text,
-                  phone: phoneController.text,
-                  email: emailController.text,
-                  birthday: birthday,
-                  picture: image?.path,
-                  latitude: latitude,
-                  longitude: longitude,
-                );
-                widget.onSave(contact);
-              },
-              child: Text(widget.contact != null ? 'Update Contact' : 'Save Contact'),
-            ),
-          ],
+              SizedBox(height: 20),
+              GestureDetector(
+                onTap: _pickImage,
+                child: image == null
+                    ? Container(
+                  height: 100,
+                  width: 100,
+                  color: Colors.grey[300],
+                  child: Icon(Icons.add_a_photo),
+                )
+                    : Image.file(
+                  File(image!.path),
+                  height: 100,
+                  width: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final position = await getCurrentLocation();
+                    if (position != null) {
+                      setState(() {
+                        latitude = position.latitude;
+                        longitude = position.longitude;
+                        selectedLocation = LatLng(latitude!, longitude!);
+                      });
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error fetching location: $e')),
+                    );
+                  }
+                },
+                child: Text('Add Current Location'),
+              ),
+              if (latitude != null && longitude != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    'Location: Lat $latitude, Long $longitude',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              SizedBox(height: 20),
+              selectedLocation != null
+                  ? Container(
+                height: 200,
+                width: double.infinity,
+                child: GoogleMap(
+                  onMapCreated: _onMapCreated,
+                  initialCameraPosition: CameraPosition(
+                    target: selectedLocation!,
+                    zoom: 14,
+                  ),
+                  markers: selectedLocation != null
+                      ? {
+                    Marker(
+                      markerId: MarkerId('selected-location'),
+                      position: selectedLocation!,
+                    ),
+                  }
+                      : {},
+                  onTap: _onTapMap,
+                ),
+              )
+                  : Container(),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  final contact = Contact(
+                    name: nameController.text,
+                    phone: phoneController.text,
+                    email: emailController.text,
+                    birthday: birthday,
+                    picture: image?.path,
+                    latitude: latitude,
+                    longitude: longitude,
+                  );
+                  widget.onSave(contact);
+                },
+                child: Text(widget.contact != null ? 'Update Contact' : 'Save Contact'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -604,65 +602,199 @@ class _ViewContactScreenState extends State<ViewContactScreen> {
     contact = widget.contact;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(contact.name)),
-      body: Padding(
+  Widget _buildContactInfo() {
+    return Card(
+      elevation: 4,
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            contact.picture != null
-                ? Image.file(File(contact.picture!), height: 100, width: 100, fit: BoxFit.cover)
-                : Container(
-              height: 100,
-              width: 100,
-              color: Colors.grey[300],
-              child: Icon(Icons.person),
-            ),
-            SizedBox(height: 20),
-            Text("Name: ${contact.name}"),
-            Text("Phone: ${contact.phone}"),
-            Text("Email: ${contact.email}"),
-            Text("Birthday: ${contact.birthday ?? 'N/A'}"),
-            SizedBox(height: 20),
-            contact.latitude != null && contact.longitude != null
-                ? Expanded(
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(contact.latitude!, contact.longitude!),
-                  zoom: 14,
+            _buildInfoRow(Icons.person, "Name", contact.name),
+            _buildInfoRow(Icons.phone, "Phone", contact.phone),
+            _buildInfoRow(Icons.email, "Email", contact.email),
+            _buildInfoRow(Icons.cake, "Birthday", contact.birthday.toString()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: Theme.of(context).primaryColor),
+          SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
                 ),
-                markers: {
-                  Marker(
-                    markerId: MarkerId(contact.name),
-                    position: LatLng(contact.latitude!, contact.longitude!),
-                    infoWindow: InfoWindow(title: contact.name),
-                  ),
-                },
-                onMapCreated: (GoogleMapController controller) {
-                  mapController = controller;
-                },
               ),
-            )
-                : Text("Location: Not available"),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                ElevatedButton(
-                  onPressed: widget.onEdit,
-                  child: Text('Edit Contact'),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
-                SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: widget.onDelete,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: Text('Delete Contact'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMap() {
+    if (contact.latitude == null || contact.longitude == null) {
+      return Card(
+        elevation: 4,
+        child: Container(
+          height: 200,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.location_off, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text("Location not available",
+                  style: TextStyle(color: Colors.grey[600])),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 4,
+      child: SizedBox(
+        height: 200,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: LatLng(contact.latitude!, contact.longitude!),
+            zoom: 14,
+          ),
+          markers: {
+            Marker(
+              markerId: MarkerId(contact.name),
+              position: LatLng(contact.latitude!, contact.longitude!),
+              infoWindow: InfoWindow(title: contact.name),
+            ),
+          },
+          onMapCreated: (GoogleMapController controller) {
+            mapController = controller;
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: widget.onEdit,
+            icon: Icon(Icons.edit),
+            label: Text('Edit Contact'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: widget.onDelete,
+            icon: Icon(Icons.delete),
+            label: Text('Delete Contact'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              padding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    Widget profileImage = SizedBox(
+      width: isLandscape ? 200 : double.infinity,
+      height: isLandscape ? MediaQuery.of(context).size.height * 0.4 : 200,
+      child: Card(
+        elevation: 4,
+        child: contact.picture != null
+            ? Image.file(
+          File(contact.picture!),
+          fit: BoxFit.cover,
+        )
+            : Container(
+          color: Colors.grey[200],
+          child: Icon(
+            Icons.person,
+            size: isLandscape ? 64 : 80,
+            color: Colors.grey[400],
+          ),
+        ),
+      ),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Contact Details"),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: isLandscape
+            ? Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: profileImage,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildContactInfo(),
+                    SizedBox(height: 16),
+                    _buildMap(),
+                    SizedBox(height: 16),
+                    _buildActionButtons(),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
+        )
+            : SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              profileImage,
+              SizedBox(height: 16),
+              _buildContactInfo(),
+              SizedBox(height: 16),
+              _buildMap(),
+              SizedBox(height: 16),
+              _buildActionButtons(),
+            ],
+          ),
         ),
       ),
     );
