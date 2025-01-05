@@ -17,6 +17,7 @@ class Contact {
   String? picture;
   double? latitude;
   double? longitude;
+  DateTime lastEdited;
 
   Contact({
     required this.name,
@@ -26,7 +27,8 @@ class Contact {
     this.picture,
     this.latitude,
     this.longitude,
-  });
+    DateTime? lastEdited,
+  }) : lastEdited = lastEdited ?? DateTime.now();
 
   Map<String, dynamic> toJson() {
     return {
@@ -37,6 +39,7 @@ class Contact {
       'picture': picture,
       'latitude': latitude,
       'longitude': longitude,
+      'lastEdited': lastEdited.toIso8601String(),
     };
   }
 
@@ -51,6 +54,7 @@ class Contact {
       picture: json['picture'],
       latitude: json['latitude'],
       longitude: json['longitude'],
+      lastEdited: DateTime.parse(json['lastEdited']),
     );
   }
 }
@@ -79,11 +83,59 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   List<Contact> contactsList = [];
+  List<Contact> recentlyEditedContacts = [];
 
   @override
   void initState() {
     super.initState();
     loadContacts();
+    loadRecentlyEdited();
+  }
+
+  Future<void> loadRecentlyEdited() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? recentJson = prefs.getString('recent_contacts');
+    if (recentJson != null) {
+      List<dynamic> recentList = json.decode(recentJson);
+      setState(() {
+        recentlyEditedContacts = recentList
+            .map((contactJson) => Contact.fromJson(contactJson))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> saveRecentlyEdited() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Map<String, dynamic>> recentJsonList =
+    recentlyEditedContacts.map((contact) => contact.toJson()).toList();
+    await prefs.setString('recent_contacts', json.encode(recentJsonList));
+  }
+
+  void updateRecentlyEdited(Contact contact) {
+    setState(() {
+      recentlyEditedContacts.removeWhere((c) =>
+      c.name == contact.name && c.phone == contact.phone
+      );
+
+      recentlyEditedContacts.insert(0, contact);
+
+      if (recentlyEditedContacts.length > 10) {
+        recentlyEditedContacts = recentlyEditedContacts.sublist(0, 10);
+      }
+    });
+
+    saveRecentlyEdited();
+  }
+
+  void removeRecentlyEdited(Contact contact) {
+    setState(() {
+      recentlyEditedContacts.removeWhere((c) =>
+      c.name == contact.name && c.phone == contact.phone
+      );
+    });
+
+    saveRecentlyEdited();
   }
 
   Future<void> loadContacts() async {
@@ -114,6 +166,7 @@ class _MainScreenState extends State<MainScreen> {
           onSave: (contact) {
             setState(() {
               contactsList.add(contact);
+              updateRecentlyEdited(contact);
             });
             saveContacts();
             Navigator.pop(context);
@@ -132,6 +185,7 @@ class _MainScreenState extends State<MainScreen> {
             setState(() {
               final index = contactsList.indexOf(contact);
               contactsList[index] = updatedContact;
+              updateRecentlyEdited(updatedContact);
             });
             saveContacts();
             Navigator.pop(context);
@@ -162,6 +216,7 @@ class _MainScreenState extends State<MainScreen> {
   void deleteContact(Contact contact) {
     setState(() {
       contactsList.remove(contact);
+      removeRecentlyEdited(contact);
     });
     saveContacts();
   }
@@ -172,14 +227,47 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         title: Text('Contacts'),
       ),
-      body: ListView.builder(
-        itemCount: contactsList.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(contactsList[index].name),
-            onTap: () => viewContact(contactsList[index]),
-          );
-        },
+      body: ListView(
+        children: [
+          if (recentlyEditedContacts.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'Recently Edited',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                ...recentlyEditedContacts.map((contact) {
+                  return ListTile(
+                    title: Text(contact.name)
+                  );
+                }),
+              ],
+            ),
+          Divider(),
+          if (contactsList.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'All Contacts',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                ...contactsList.map((contact) {
+                  return ListTile(
+                    title: Text(contact.name),
+                    onTap: () => viewContact(contact),
+                  );
+                }),
+              ],
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: createContact,
@@ -255,9 +343,7 @@ class _CreateContactScreenState extends State<CreateContactScreen> {
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
+    return await Geolocator.getCurrentPosition();
   }
 
   Future<void> _selectBirthday(BuildContext context) async {
