@@ -1,16 +1,16 @@
-# amov_contact_list
+# AMOV - ContactList [Flutter]
 
-A new Flutter project.
+ISEC - Trabalho de AMOV [24/25]
 
-## Getting Started
+Trabalho prático feita por:
 
-This project is a starting point for a Flutter application.
+- Guilherme Camacho
+- Tiago Figueiredo
+- Bruno Amado
 
-A few resources to get you started if this is your first Flutter project:
+Nota: 91%
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Funções em falta
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+-   [ ] Fix no shared preferences
+-   [ ] Mapa as veze não mostra
